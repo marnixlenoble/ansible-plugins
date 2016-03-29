@@ -1,4 +1,5 @@
 # (c) 2014, Dean Wilson <dean.wilson(at)gmail.com>
+# (c) 2016, Daniel Butler <rubbish(at)kefa.co.uk>
 #
 # Ansible is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,51 +14,60 @@
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
-from ansible import errors
-import sys
-from traceback import format_exception
+from ansible.errors import AnsibleError  
+from ansible.plugins.lookup import LookupBase
 
 try:
     import boto
     import boto.cloudformation
 except ImportError:
-    raise errors.AnsibleError(
-        "Can't LOOKUP(cloudformation): module boto is not installed")
+    raise AnsibleError("Can't lookup cloudformation, boto module not installed")
 
+class LookupModule(LookupBase):
 
-class Cloudformation(object):
+    def run(self, terms, variables, **kwargs):
 
-    def __init__(self, region, stack_name):
-        self.region = region
-        self.stack_name = stack_name
+      # defined allowed input parameters
+      stack_sections = {
+         'output': None,
+         'resource_id': None,
+         'parameter': None
+      }
+      params = {
+         'region' : 'eu-west-1',
+         'profile': None,
+         'stack': None
+      }
+      params.update(stack_sections)
 
-    def get_item(self, resource_type, key):
-        conn = boto.cloudformation.connect_to_region(self.region)
-        stack = conn.describe_stacks(stack_name_or_id=self.stack_name)[0]
-        if resource_type in ['parameter', 'output']:
-            attr = "{0}s".format(resource_type)
-            return [item.value for item in
-                    getattr(stack, attr) if item.key == key]
-        elif resource_type == 'resource_id':
-            return [stack.describe_resources(key)[0].physical_resource_id]
-        else:
-            raise errors.AnsibleError(
-                "unknown resource type {0}".format(resource_type))
+      # check all supplied parameters are valid
+      for term in terms:
+         try: 
+            name, value = term.split('=')
+            assert(name in params)
+            params[name] = value
+         except (ValueError, AssertionError) as e:
+            raise AnsibleError("Invalid cloudformation lookup param: " + name)
 
+      # check only one stack section identifier supplied
+      count = 0
+      for stack_section in stack_sections:
+         if params[stack_section] is not None:
+            count += 1
+            section = stack_section 
+            key = params[section]
+      if count != 1:
+         raise AnsibleError("Either 'output', 'parameter', or 'resource_id' \
+             must be specified but not more than one")
+            
+      conn = boto.cloudformation.connect_to_region(params['region'],
+            profile_name=params['profile'])
+      stack = conn.describe_stacks(stack_name_or_id=params['stack'])[0]
 
-class LookupModule(object):
-
-    def __init__(self, basedir=None, **kwargs):
-        self.basedir = basedir
-
-    def run(self, terms, inject=None, **kwargs):
-        try:
-            region, stack, value_type, key = terms.split('/')
-
-            self.cfn = Cloudformation(region, stack)
-            value = self.cfn.get_item(value_type, key)
-            return value
-        except Exception:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            raise errors.AnsibleError(
-                format_exception(exc_type, exc_value, exc_traceback))
+      if section in ['parameter', 'output']:
+         attr = "{0}s".format(section)
+         return [item.value for item in getattr(stack, attr) if item.key == key]
+      elif section == 'resource_id':
+         return [stack.describe_resources(key)[0].physical_resource_id]
+      else:
+         raise AnsibleError("unknown resource type {0}".format(section))
