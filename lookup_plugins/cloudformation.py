@@ -41,13 +41,17 @@ class LookupModule(LookupBase):
       params.update(stack_sections)
 
       # check all supplied parameters are valid
+      name = None
       for term in terms:
          try: 
             name, value = term.split('=')
             assert(name in params)
             params[name] = value
          except (ValueError, AssertionError) as e:
-            raise AnsibleError("Invalid cloudformation lookup param: " + name)
+            if name:
+               raise AnsibleError("Invalid cloudformation lookup param: " + name)
+            else:
+               raise AnsibleError("Cloudformation lookup syntax error")
 
       # check only one stack section identifier supplied
       count = 0
