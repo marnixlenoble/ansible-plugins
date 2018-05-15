@@ -137,15 +137,15 @@ the string 'gov'
 
 ### Cloudformation ###
 
-Allows you to look up Cloudformation stack output values.
+ Allows you to look up Cloudformation stack output, parameter and resource values. Updated to support Ansible v2 and boto profiles to allow it to work with MFA on the command line. Optional 'region' and 'profile' parameters will revert to defaults if not supplied.
 
-The key should be structured like this:
+The lookup should be structured like this:
 
-    {{ lookup('cloudformation', 'region/stackname/output/outputname') }}
+    {{ lookup('cloudformation', 'region=' + Region, 'stack=' + Stack, 'output=' + Output, 'profile=' + Profile) }}
 
 and an actual example:
 
-    {{ lookup('cloudformation', 'eu-west-1/unixdaemon-natinstance/output/nat_group_id') }}
+    {{ lookup('cloudformation', 'region=eu-west-1', 'stack=core-shared-vpc-eu-west-1', 'output=DBSubnetGroupName', 'profile=home-mfa') }}
 
 
 ### Elasticache Replica Group ###
