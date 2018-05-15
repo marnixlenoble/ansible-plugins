@@ -15,8 +15,7 @@
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 # Refactored for Ansible 2.0 by Josh Quint  josh at turinggroup.com
 
-from ansible . errors
-from ansible.plugins.lookup import LookupBaseimport AnsibleError
+from ansible.errors import AnsibleError  
 from ansible.plugins.lookup import LookupBase
 
 try:
